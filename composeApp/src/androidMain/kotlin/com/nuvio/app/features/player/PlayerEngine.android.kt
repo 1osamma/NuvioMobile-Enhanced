@@ -940,6 +940,9 @@ private fun ExoPlayerSurface(
             object : PlayerEngineController {
                 override val playbackEngine = AndroidPlaybackEngine.ExoPlayer
 
+                private var cachedAudioTracksSource: androidx.media3.common.Tracks? = null
+                private var cachedAudioTracks: List<AudioTrack> = emptyList()
+
                 override fun play() {
                     InAppLogger.debug("ExoPlayer/Android", "control play positionMs=${exoPlayer.currentPosition.coerceAtLeast(0L)}")
                     exoPlayer.playWhenReady = true
@@ -1009,7 +1012,13 @@ private fun ExoPlayerSurface(
                 }
 
                 override fun getAudioTracks(): List<AudioTrack> {
+                    val currentTracks = exoPlayer.currentTracks
+                    if (currentTracks === cachedAudioTracksSource) {
+                        return cachedAudioTracks
+                    }
                     val tracks = exoPlayer.extractAudioTracks(context)
+                    cachedAudioTracksSource = currentTracks
+                    cachedAudioTracks = tracks
                     InAppLogger.debug(
                         "ExoPlayer/Android",
                         "getAudioTracks count=${tracks.size} selected=${tracks.firstOrNull { it.isSelected }?.index ?: -1}",
