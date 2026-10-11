@@ -489,6 +489,7 @@ private fun ExoPlayerSurface(
                 .buildWithAssSupportCompat(
                     context = context,
                     renderType = libassRenderType.toAssRenderType(),
+                    config = createLibassHandlerConfig(context),
                     dataSourceFactory = dataSourceFactory,
                     extractorsFactory = extractorsFactory,
                     renderersFactory = renderersFactory
@@ -1254,6 +1255,7 @@ private fun ExoPlayerSurface(
                     player = exoPlayer,
                     enabled = useLibass,
                     renderType = libassRenderType,
+                    subtitleDelayUsProvider = { latestSubtitleDelayMs.value.toLong() * 1_000L },
                 )
                 applySubtitleStyle(currentSubtitleStyle, pipSubtitleScale)
             }
@@ -1269,6 +1271,7 @@ private fun ExoPlayerSurface(
                 player = exoPlayer,
                 enabled = useLibass,
                 renderType = libassRenderType,
+                subtitleDelayUsProvider = { latestSubtitleDelayMs.value.toLong() * 1_000L },
             )
             playerView.applySubtitleStyle(currentSubtitleStyle, pipSubtitleScale)
         },
@@ -2747,6 +2750,7 @@ private fun PlayerView.syncLibassOverlay(
     player: ExoPlayer,
     enabled: Boolean,
     renderType: LibassRenderType,
+    subtitleDelayUsProvider: () -> Long,
 ) {
     val containerId = if (renderType == LibassRenderType.OVERLAY_OPEN_GL) {
         R.id.libass_overlay_container_gl
@@ -2775,6 +2779,11 @@ private fun PlayerView.syncLibassOverlay(
 
     overlayContainer.removeAssOverlayChildren()
     val assSubtitleView = AssSubtitleView(overlayContainer.context, assHandler)
+    assSubtitleView.attachVsyncRenderDriver(
+        player = player,
+        assHandler = assHandler,
+        subtitleDelayUsProvider = subtitleDelayUsProvider,
+    )
     overlayContainer.addView(
         assSubtitleView,
         android.widget.FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
