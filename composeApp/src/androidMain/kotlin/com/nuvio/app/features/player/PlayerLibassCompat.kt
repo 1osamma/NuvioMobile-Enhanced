@@ -184,7 +184,7 @@ private class LibassVsyncRenderDriver(
     }
 }
 
-private const val LIBASS_MAX_RENDER_PIXELS = 2560 * 1440
+private const val LIBASS_MAX_RENDER_PIXELS = 1920 * 1080
 private const val LIBASS_LARGE_CACHE_SIZE_MB = 256
 private const val LIBASS_LARGE_CACHE_MIN_TOTAL_MEM_BYTES = 5L * 1024L * 1024L * 1024L
 private const val LIBASS_MAX_EXTRAPOLATION_US = 250_000L
