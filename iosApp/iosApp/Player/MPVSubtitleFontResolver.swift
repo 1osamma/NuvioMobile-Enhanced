@@ -114,6 +114,26 @@ enum MPVSubtitleFontResolver {
 
     private(set) static var registeredFamilies: [String] = []
 
+    // MARK: User-imported subtitle fonts
+
+    static let customFontChangedNotification = Notification.Name("NuvioSubtitleFontChanged")
+    private static let customFontPreference = "nuvio.customSubtitleFont"
+
+    static func selectedCustomFamily() -> String? {
+        guard let file = UserDefaults.standard.string(forKey: customFontPreference),
+              file == (file as NSString).lastPathComponent,
+              ["ttf", "otf"].contains((file as NSString).pathExtension.lowercased()) else { return nil }
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let url = documents.appendingPathComponent("SubtitleFonts", isDirectory: true).appendingPathComponent(file)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        var error: Unmanaged<CFError>?
+        _ = CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error)
+        let descriptors = CTFontManagerCreateFontDescriptorsFromURL(url as CFURL) as? [CTFontDescriptor] ?? []
+        return descriptors.compactMap {
+            CTFontDescriptorCopyAttribute($0, kCTFontFamilyNameAttribute) as? String
+        }.first
+    }
+
     // MARK: Resolution
 
     /// Use the bundled Latin face for every script that does not need a
@@ -289,6 +309,7 @@ final class MPVSubtitleFontController {
     private weak var player: MPVPlayerViewController?
 
     private var appliedFamily: String?
+    private var customFontObserver: NSObjectProtocol?
     private var scriptFromLanguage: MPVSubtitleFontResolver.Script?
     private var scriptFromText: MPVSubtitleFontResolver.Script?
     private var provisionalScript: MPVSubtitleFontResolver.Script?
@@ -304,6 +325,17 @@ final class MPVSubtitleFontController {
 
     init(player: MPVPlayerViewController) {
         self.player = player
+        customFontObserver = NotificationCenter.default.addObserver(
+            forName: MPVSubtitleFontResolver.customFontChangedNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in self?.applyResolvedFont() }
+    }
+
+    deinit {
+        if let customFontObserver {
+            NotificationCenter.default.removeObserver(customFontObserver)
+        }
     }
 
     func applySetupOptions(_ setOption: (String, String) -> Void) {
@@ -317,7 +349,7 @@ final class MPVSubtitleFontController {
             }
         }
 
-        guard let family = MPVSubtitleFontResolver.baselineFamily else {
+        guard let family = MPVSubtitleFontResolver.selectedCustomFamily() ?? MPVSubtitleFontResolver.baselineFamily else {
             InAppLogBridge.shared.warn(
                 tag: "MPV/SubFont",
                 message: "No CJK-capable font available; non-Latin subtitles may render as boxes"
@@ -471,7 +503,7 @@ final class MPVSubtitleFontController {
 
     private func applyResolvedFont() {
         let script = scriptFromText ?? scriptFromLanguage
-        let family = script.flatMap { MPVSubtitleFontResolver.family(for: $0) }
+        let family = MPVSubtitleFontResolver.selectedCustomFamily() ?? script.flatMap { MPVSubtitleFontResolver.family(for: $0) }
             ?? MPVSubtitleFontResolver.baselineFamily
 
         guard let family, family != appliedFamily else { return }
