@@ -34,7 +34,7 @@ private fun importedFonts(): List<String> =
         .orEmpty()
         .filterIsInstance<String>()
         .filter { it.substringAfterLast('.', "").lowercase() in setOf("ttf", "otf") }
-        .sortedWith(String.CASE_INSENSITIVE_ORDER)
+        .sortedBy { it.lowercase() }
 
 private fun notifyFontChanged() {
     NSNotificationCenter.defaultCenter.postNotificationName(fontChangedNotification, null)
