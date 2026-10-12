@@ -330,6 +330,9 @@ private fun PlaybackSettingsSection(
     var showSecondaryAudioDialog by remember { mutableStateOf(false) }
     var showPreferredSubtitleDialog by remember { mutableStateOf(false) }
     var showSecondarySubtitleDialog by remember { mutableStateOf(false) }
+    var showSubtitleFontDialog by remember { mutableStateOf(false) }
+    var subtitleFontError by remember { mutableStateOf<String?>(null) }
+    val subtitleFontPicker = rememberSubtitleFontPicker { subtitleFontError = it }
     var showSubtitleTextColorDialog by remember { mutableStateOf(false) }
     var showSubtitleBackgroundColorDialog by remember { mutableStateOf(false) }
     var showSubtitleOutlineColorDialog by remember { mutableStateOf(false) }
@@ -662,6 +665,16 @@ private fun PlaybackSettingsSection(
                         PlayerSettingsRepository.setSubtitleStyle(subtitleStyle.copy(fontSizeSp = value))
                     },
                 )
+                if (isIos) {
+                    SettingsGroupDivider(isTablet = isTablet)
+                    SettingsNavigationRow(
+                        title = "Subtitle Font",
+                        description = subtitleFontPicker.selected ?: "System Default",
+                        enabled = subtitleRenderingEnabled,
+                        isTablet = isTablet,
+                        onClick = { showSubtitleFontDialog = true },
+                    )
+                }
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsSliderRow(
                     title = stringResource(Res.string.settings_playback_subtitle_vertical_offset),
@@ -1646,6 +1659,54 @@ private fun PlaybackSettingsSection(
         )
     }
 
+    if (showSubtitleFontDialog) {
+        DialogSurface(
+            onDismissRequest = { showSubtitleFontDialog = false },
+            title = "Subtitle Font",
+        ) {
+            Text(
+                text = "Import .ttf or .otf fonts from Files. Selected fonts are used for subtitles.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                DialogOption(
+                    text = "System Default",
+                    selected = subtitleFontPicker.selected == null,
+                    onClick = { subtitleFontPicker.select(null); showSubtitleFontDialog = false },
+                )
+                subtitleFontPicker.fonts.forEach { name ->
+                    DialogOption(
+                        text = name,
+                        selected = subtitleFontPicker.selected == name,
+                        onClick = { subtitleFontPicker.select(name); showSubtitleFontDialog = false },
+                    )
+                }
+                DialogOption(
+                    text = "Import Custom Font…",
+                    selected = false,
+                    onClick = { showSubtitleFontDialog = false; subtitleFontPicker.importFont() },
+                )
+                subtitleFontPicker.selected?.let { name ->
+                    DialogOption(
+                        text = "Delete selected font: $name",
+                        selected = false,
+                        onClick = { subtitleFontPicker.delete(name); showSubtitleFontDialog = false },
+                    )
+                }
+            }
+            DialogButtons {
+                DialogButton(text = stringResource(Res.string.action_done), onClick = { showSubtitleFontDialog = false })
+            }
+        }
+    }
+    if (subtitleFontError != null) {
+        DialogSurface(onDismissRequest = { subtitleFontError = null }, title = "Font Import") {
+            Text(subtitleFontError.orEmpty())
+            DialogButtons {
+                DialogButton(text = stringResource(Res.string.action_done), onClick = { subtitleFontError = null })
+            }
+        }
+    }
     if (showSubtitleTextColorDialog) {
         SubtitleColorDialog(
             title = stringResource(Res.string.settings_playback_subtitle_text_color),
