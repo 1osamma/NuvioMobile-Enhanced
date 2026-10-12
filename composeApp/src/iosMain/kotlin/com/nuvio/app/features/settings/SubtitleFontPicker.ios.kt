@@ -22,6 +22,7 @@ import platform.darwin.NSObject
 private const val fontPreferenceKey = "nuvio.customSubtitleFont"
 private const val fontChangedNotification = "NuvioSubtitleFontChanged"
 
+@OptIn(ExperimentalForeignApi::class)
 private fun fontDirectory(): String {
     val documents = NSSearchPathForDirectoriesInDomains(
         NSDocumentDirectory, NSUserDomainMask, true,
@@ -41,6 +42,7 @@ private fun notifyFontChanged() {
 }
 
 @Composable
+@OptIn(ExperimentalForeignApi::class)
 internal actual fun rememberSubtitleFontPicker(onError: (String) -> Unit): SubtitleFontPicker {
     val files = remember { mutableStateOf(importedFonts()) }
     val selection = remember {
@@ -68,7 +70,7 @@ internal actual fun rememberSubtitleFontPicker(onError: (String) -> Unit): Subti
                             require(name.substringAfterLast('.', "").lowercase() in setOf("ttf", "otf")) {
                                 "Please choose a .ttf or .otf font."
                             }
-                            val data = NSData.dataWithContentsOfURL(url)
+                            val data = NSData(contentsOfURL = url)
                                 ?: error("Unable to read selected font.")
                             require(data.length.toLong() in 1..20_971_520) {
                                 "Font file must be smaller than 20 MB."
@@ -122,6 +124,7 @@ internal actual fun rememberSubtitleFontPicker(onError: (String) -> Unit): Subti
     )
 }
 
+@OptIn(ExperimentalForeignApi::class)
 private class SubtitleFontDocumentDelegate(
     private val onPicked: (NSURL) -> Unit,
     private val onDismiss: () -> Unit,
@@ -138,6 +141,7 @@ private class SubtitleFontDocumentDelegate(
     }
 }
 
+@OptIn(ExperimentalForeignApi::class)
 private fun topSubtitlePickerViewController(): UIViewController? {
     var controller = UIApplication.sharedApplication.keyWindow?.rootViewController
     while (controller?.presentedViewController != null) {
