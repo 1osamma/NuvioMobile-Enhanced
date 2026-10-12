@@ -69,6 +69,9 @@ jobs:
             printf 'CONTRIBUTIONS_URL=%s\n' "${CONTRIBUTIONS_URL}" >> local.properties
           fi
 
+      - name: Ensure local.properties exists for Gradle runtime config
+        run: touch local.properties
+
       - name: Constrain Gradle memory for the hosted runner
         run: |
           gradle_user_home="${GRADLE_USER_HOME:-${HOME}/.gradle}"
@@ -101,7 +104,7 @@ jobs:
       - name: Summarize IPA
         run: |
           configuration_slug="$(printf '%s' "${IOS_CONFIGURATION}" | tr '[:upper:]' '[:lower:]')"
-          ipa_path="$(find build/ios-ipa -maxdepth 1 -type f -name "*-full-${configuration_slug}.ipa" -print -quit)"
+          ipa_path="$(find build/ios-ipa -maxdepth 1 -type f -name "*-enhanced-${configuration_slug}.ipa" -print -quit)"
           if [[ -z "${ipa_path}" ]]; then
             echo "No IPA was produced." >&2
             exit 1
@@ -113,7 +116,7 @@ jobs:
             echo "- File: $(basename "${ipa_path}")"
             echo "- Size: $(du -h "${ipa_path}" | cut -f1)"
             echo "- SHA-256: $(shasum -a 256 "${ipa_path}" | awk '{print $1}')"
-            echo "- Distribution: full"
+            echo "- Distribution: full (Enhanced)"
             echo "- Configuration: ${IOS_CONFIGURATION}"
             echo "- Signing: unsigned"
           } >> "${GITHUB_STEP_SUMMARY}"
