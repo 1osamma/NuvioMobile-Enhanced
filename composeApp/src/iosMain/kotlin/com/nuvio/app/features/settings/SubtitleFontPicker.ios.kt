@@ -1,10 +1,11 @@
+@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+
 package com.nuvio.app.features.settings
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import kotlinx.cinterop.ExperimentalForeignApi
-import platform.Foundation.NSData
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSSearchPathForDirectoriesInDomains
@@ -22,7 +23,6 @@ import platform.darwin.NSObject
 private const val fontPreferenceKey = "nuvio.customSubtitleFont"
 private const val fontChangedNotification = "NuvioSubtitleFontChanged"
 
-@OptIn(ExperimentalForeignApi::class)
 private fun fontDirectory(): String {
     val documents = NSSearchPathForDirectoriesInDomains(
         NSDocumentDirectory, NSUserDomainMask, true,
@@ -42,7 +42,6 @@ private fun notifyFontChanged() {
 }
 
 @Composable
-@OptIn(ExperimentalForeignApi::class)
 internal actual fun rememberSubtitleFontPicker(onError: (String) -> Unit): SubtitleFontPicker {
     val files = remember { mutableStateOf(importedFonts()) }
     val selection = remember {
@@ -70,18 +69,12 @@ internal actual fun rememberSubtitleFontPicker(onError: (String) -> Unit): Subti
                             require(name.substringAfterLast('.', "").lowercase() in setOf("ttf", "otf")) {
                                 "Please choose a .ttf or .otf font."
                             }
-                            val data = NSData(contentsOfURL = url)
-                                ?: error("Unable to read selected font.")
-                            require(data.length.toLong() in 1..20_971_520) {
-                                "Font file must be smaller than 20 MB."
-                            }
+                            val sourcePath = url.path ?: error("Unable to resolve selected font path.")
                             val dir = fontDirectory()
                             check(NSFileManager.defaultManager.createDirectoryAtPath(
                                 dir, withIntermediateDirectories = true, attributes = null, error = null,
                             )) { "Unable to create subtitle fonts folder." }
-                            check(data.writeToFile("$dir/$name", atomically = true)) {
-                                "Unable to save imported font."
-                            }
+                            copyFontFile(sourcePath, "$dir/$name")
                             files.value = importedFonts()
                             NSUserDefaults.standardUserDefaults.setObject(name, forKey = fontPreferenceKey)
                             selection.value = name
@@ -124,7 +117,38 @@ internal actual fun rememberSubtitleFontPicker(onError: (String) -> Unit): Subti
     )
 }
 
-@OptIn(ExperimentalForeignApi::class)
+
+private fun copyFontFile(sourcePath: String, destinationPath: String) {
+    val input = platform.posix.fopen(sourcePath, "rb")
+        ?: error("Unable to open selected font.")
+    val output = platform.posix.fopen(destinationPath, "wb")
+        ?: run {
+            platform.posix.fclose(input)
+            error("Unable to create imported font file.")
+        }
+
+    try {
+        var count = 0L
+        while (true) {
+            val value = platform.posix.fgetc(input)
+            if (value < 0) break
+            count += 1
+            require(count <= 20_971_520) { "Font file must be smaller than 20 MB." }
+            if (platform.posix.fputc(value, output) < 0) {
+                error("Unable to save imported font.")
+            }
+        }
+    } catch (error: Throwable) {
+        platform.posix.fclose(input)
+        platform.posix.fclose(output)
+        platform.posix.remove(destinationPath)
+        throw error
+    }
+
+    platform.posix.fclose(input)
+    platform.posix.fclose(output)
+}
+
 private class SubtitleFontDocumentDelegate(
     private val onPicked: (NSURL) -> Unit,
     private val onDismiss: () -> Unit,
@@ -141,7 +165,6 @@ private class SubtitleFontDocumentDelegate(
     }
 }
 
-@OptIn(ExperimentalForeignApi::class)
 private fun topSubtitlePickerViewController(): UIViewController? {
     var controller = UIApplication.sharedApplication.keyWindow?.rootViewController
     while (controller?.presentedViewController != null) {
