@@ -69,6 +69,15 @@ jobs:
             printf 'CONTRIBUTIONS_URL=%s\n' "${CONTRIBUTIONS_URL}" >> local.properties
           fi
 
+      - name: Configure Trakt client ID (PKCE, no secret needed)
+        env:
+          TRAKT_CLIENT_ID_DEFAULT: ${{ vars.TRAKT_CLIENT_ID || 'T9hzVPtmk8Ip9TCIYUMWbVJpfGtbH_cHomN7NoucbTE' }}
+        run: |
+          touch local.properties
+          if ! grep -Eq '^TRAKT_CLIENT_ID=.+' local.properties; then
+            printf '\nTRAKT_CLIENT_ID=%s\n' "${TRAKT_CLIENT_ID_DEFAULT}" >> local.properties
+          fi
+
       - name: Constrain Gradle memory for the hosted runner
         run: |
           gradle_user_home="${GRADLE_USER_HOME:-${HOME}/.gradle}"
